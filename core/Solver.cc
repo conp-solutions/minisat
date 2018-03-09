@@ -128,6 +128,18 @@ Var Solver::newVar(bool sign, bool dvar)
     return v;
 }
 
+void Solver::reserveVars(Var v)
+{
+    watches  .init(mkLit(v, false));
+    watches  .init(mkLit(v, true));
+    assigns  .capacity(v + 1);
+    vardata  .capacity(v + 1);
+    activity .capacity(v + 1);
+    seen     .capacity(v + 1);
+    polarity .capacity(v + 1);
+    decision .capacity(v + 1);
+    trail    .capacity(v + 1);
+}
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
