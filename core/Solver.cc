@@ -143,6 +143,9 @@ void Solver::reserveVars(Var v)
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
+    // make sure we work on level 0 when adding clauses
+    if(decisionLevel() > 0 ) cancelUntil(0);
+
     assert(decisionLevel() == 0);
     if (!ok) return false;
 
