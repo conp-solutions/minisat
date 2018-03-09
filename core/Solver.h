@@ -33,7 +33,7 @@ namespace Minisat {
 //=================================================================================================
 // Solver -- the main class:
 
-class Solver {
+class __attribute__ ((visibility ("hidden"))) Solver {
 public:
 
     // Constructor/Destructor:
