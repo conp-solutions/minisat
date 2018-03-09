@@ -590,6 +590,8 @@ bool Solver::simplify()
 {
     assert(decisionLevel() == 0);
 
+    // this is executed too frequently, for now just strike it out completely
+    return true;
     if (!ok || propagate() != CRef_Undef)
         return ok = false;
 
