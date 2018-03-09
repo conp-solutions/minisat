@@ -11,11 +11,12 @@ EXEC      ?= $(notdir $(PWD))
 CSRCS      = $(wildcard $(PWD)/*.cc) 
 DSRCS      = $(foreach dir, $(DEPDIR), $(filter-out $(MROOT)/$(dir)/Main.cc, $(wildcard $(MROOT)/$(dir)/*.cc)))
 CHDRS      = $(wildcard $(PWD)/*.h)
-COBJS      = $(CSRCS:.cc=.o) $(DSRCS:.cc=.o)
+COBJS      = $(DSRCS:.cc=.o) $(CSRCS:.cc=.o)
 
 PCOBJS     = $(addsuffix p,  $(COBJS))
 DCOBJS     = $(addsuffix d,  $(COBJS))
 RCOBJS     = $(addsuffix r,  $(COBJS))
+LCOBJS     = $(addsuffix l,  $(COBJS))
 
 
 CXX       ?= g++
@@ -40,11 +41,15 @@ libp:	lib$(LIB)_profile.a
 libd:	lib$(LIB)_debug.a
 libr:	lib$(LIB)_release.a
 
+# dynamic library
+libl:	lib$(LIB)_standard.so
+
 ## Compile options
 %.o:			CFLAGS +=$(COPTIMIZE) -g -D DEBUG
 %.op:			CFLAGS +=$(COPTIMIZE) -pg -g -D NDEBUG
 %.od:			CFLAGS +=-O0 -g -D DEBUG
 %.or:			CFLAGS +=$(COPTIMIZE) -g -D NDEBUG
+%.ol:			CFLAGS +=-g -D NDEBUG -fpic $(COPTIMIZE)
 
 ## Link options
 $(EXEC):		LFLAGS += -g
@@ -65,9 +70,11 @@ lib$(LIB)_profile.a:	$(filter-out */Main.op, $(PCOBJS))
 lib$(LIB)_debug.a:	$(filter-out */Main.od, $(DCOBJS))
 lib$(LIB)_release.a:	$(filter-out */Main.or, $(RCOBJS))
 
+lib$(LIB)_standard.so:	$(filter-out */Main.or, $(LCOBJS))
+
 
 ## Build rule
-%.o %.op %.od %.or:	%.cc
+%.o %.op %.od %.or %.ol:	%.cc
 	@echo Compiling: $(subst $(MROOT)/,,$@)
 	@$(CXX) $(CFLAGS) -c -o $@ $<
 
@@ -81,15 +88,29 @@ lib$(LIB)_standard.a lib$(LIB)_profile.a lib$(LIB)_release.a lib$(LIB)_debug.a:
 	@echo Making library: "$@ ( $(foreach f,$^,$(subst $(MROOT)/,,$f)) )"
 	@$(AR) -rcsv $@ $^
 
+## Shared library rules (standard/profile/debug/release)
+lib$(LIB)_standard.so:
+	@echo Making library: "$@ ( $(foreach f,$^,$(subst $(MROOT)/,,$f)) )"
+	@$(CXX) $^ -shared  -Wl,-soname,lib$(LIB).so $(LFLAGS) -o $@
+	# remove all hidden symbols from the shared object
+	strip -x $@
+
 ## Library Soft Link rule:
 libs libp libd libr:
 	@echo "Making Soft Link: $^ -> lib$(LIB).a"
 	@ln -sf $^ lib$(LIB).a
 
+## Dynamic Soft Link rule:
+libl:
+	@echo "Making Soft Link: $^ -> lib$(LIB).so"
+	@ln -sf $^ lib$(LIB).so
+
 ## Clean rule
 clean:
 	@rm -f $(EXEC) $(EXEC)_profile $(EXEC)_debug $(EXEC)_release $(EXEC)_static \
-	  $(COBJS) $(PCOBJS) $(DCOBJS) $(RCOBJS) *.core depend.mk 
+	  $(COBJS) $(PCOBJS) $(DCOBJS) $(RCOBJS) $(LCOBJS) *.core depend.mk \
+          lib$(LIB)_standard.a lib$(LIB)_profile.a lib$(LIB)_release.a lib$(LIB)_debug.a \
+          lib$(LIB).so lib$(LIB)_standard.so
 
 ## Make dependencies
 depend.mk: $(CSRCS) $(CHDRS)
