@@ -778,6 +778,7 @@ lbool Solver::solve_()
         printf("| Conflicts |          ORIGINAL         |          LEARNT          | Progress |\n");
         printf("|           |    Vars  Clauses Literals |    Limit  Clauses Lit/Cl |          |\n");
         printf("===============================================================================\n");
+        printf("| %d assumptions, %d variables, %d decision level |\n", assumptions.size(), nVars(), decisionLevel());
     }
 
     // Search:
@@ -786,6 +787,7 @@ lbool Solver::solve_()
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
         status = search(rest_base * restart_first);
         if (!withinBudget()) break;
+	else if(verbosity > 2) printf("c within budget with %d restarts, %ld conflicts, %ld confBudget\n", (int)curr_restarts, conflicts, conflict_budget);
         curr_restarts++;
     }
 
@@ -799,6 +801,8 @@ lbool Solver::solve_()
         for (int i = 0; i < nVars(); i++) model[i] = value(i);
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
+
+    if (verbosity >= 1) printf("c finished search with ret = %d, at decision level %d, conflict lits %d\n", toInt(status), decisionLevel(), conflict.size());
 
     cancelUntil(0);
     return status;
