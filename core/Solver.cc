@@ -671,10 +671,10 @@ lbool Solver::search(int nof_conflicts)
 
         }else{
             // NO CONFLICT
-            if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
+            if ( (nof_conflicts >= 0 && conflictC >= nof_conflicts) || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
-                cancelUntil(0);
+                cancelUntil(assumptions.size() == 0 ? 0 : assumptions.size());
                 return l_Undef; }
 
             // Simplify the set of problem clauses:
