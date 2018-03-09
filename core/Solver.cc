@@ -636,6 +636,34 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
+    if(true && decisionLevel() == 0)
+    {
+        while (decisionLevel() < assumptions.size()){
+            // Perform user provided assumption:
+            Lit p = assumptions[decisionLevel()];
+
+	    if(value(p) == l_False)
+	    {
+	      // do not continue here, as we'll find a conflict next, and we do not know how to handle that
+	      cancelUntil(0);
+	      break;
+	    }
+
+	    newDecisionLevel();
+	    if(value(p) == l_Undef)
+	      uncheckedEnqueue(p, CRef_Undef);
+
+	}
+
+	assert((decisionLevel() == 0 || decisionLevel() == assumptions.size()) && "we propagated all assumptions by now");
+
+	// for now we do not know how to quick-handle conflicts here, so do not investigate. just speedup the SAT case
+	CRef confl = propagate();
+	if(confl != CRef_Undef) {
+	  cancelUntil(0);
+	}
+    }
+
     for (;;){
         CRef confl = propagate();
         if (confl != CRef_Undef){
