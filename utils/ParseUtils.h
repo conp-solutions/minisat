@@ -80,8 +80,8 @@ static void skipLine(B& in) {
 
 
 template<class B>
-static int parseInt(B& in) {
-    int     val = 0;
+static int64_t parseInt(B& in) {
+    int64_t     val = 0;
     bool    neg = false;
     skipWhitespace(in);
     if      (*in == '-') neg = true, ++in;
