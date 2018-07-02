@@ -111,6 +111,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     lbool    result = l_True;
 
     do_simp &= use_simplification;
+    start_total_literals = start_total_literals == UINT64_MAX ? clauses_literals : start_total_literals;
 
     if (do_simp){
         // Assumptions must be temporarily frozen to run variable elimination:
