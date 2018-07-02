@@ -159,6 +159,16 @@ public:
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, num_clauses, num_learnts, clauses_literals, learnts_literals, max_literals, tot_literals, start_total_literals;
 
+    /// Single object to hold most statistics
+    struct SolverStats
+    {
+      double simpSeconds, solveSeconds;
+      uint64_t simpSteps, solveSteps;
+
+      SolverStats() : simpSeconds(0), solveSeconds(0), simpSteps(0), solveSteps(0) {}
+
+    } statistics;
+
 protected:
 
     // Helper structures:

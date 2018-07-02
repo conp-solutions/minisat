@@ -258,6 +258,7 @@ bool Solver::addClause_(vec<Lit>& ps)
 
 void Solver::attachClause(CRef cr){
     const Clause& c = ca[cr];
+    statistics.solveSteps ++;
     assert(c.size() > 1);
     watches[~c[0]].push(Watcher(cr, c[1]));
     watches[~c[1]].push(Watcher(cr, c[0]));
@@ -269,7 +270,8 @@ void Solver::attachClause(CRef cr){
 void Solver::detachClause(CRef cr, bool strict){
     const Clause& c = ca[cr];
     assert(c.size() > 1);
-    
+    statistics.solveSteps ++;
+
     // Strict or lazy detaching:
     if (strict){
         remove(watches[~c[0]], Watcher(cr, c[1]));
@@ -286,6 +288,7 @@ void Solver::detachClause(CRef cr, bool strict){
 
 void Solver::removeClause(CRef cr, bool remove_from_proof) {
     Clause& c = ca[cr];
+    statistics.solveSteps ++;
 
     if(remove_from_proof)
         extendProof(c, true);
@@ -385,6 +388,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
+        statistics.solveSteps ++;
 
         if (c.learnt())
             claBumpActivity(c);
@@ -429,6 +433,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                 out_learnt[j++] = out_learnt[i];
             else{
                 Clause& c = ca[reason(var(out_learnt[i]))];
+                statistics.solveSteps ++;
                 for (int k = 1; k < c.size(); k++)
                     if (!seen[var(c[k])] && level(var(c[k])) > 0){
                         out_learnt[j++] = out_learnt[i];
@@ -471,6 +476,7 @@ bool Solver::litRedundant(Lit p)
     assert(reason(var(p)) != CRef_Undef);
 
     Clause*               c     = &ca[reason(var(p))];
+    statistics.solveSteps ++;
     vec<ShrinkStackElem>& stack = analyze_stack;
     stack.clear();
 
@@ -500,6 +506,7 @@ bool Solver::litRedundant(Lit p)
             i  = 0;
             p  = l;
             c  = &ca[reason(var(p))];
+            statistics.solveSteps ++;
         }else{
             // Finished with current element 'p' and reason 'c':
             if (seen[var(p)] == seen_undef){
@@ -514,6 +521,7 @@ bool Solver::litRedundant(Lit p)
             i  = stack.last().i;
             p  = stack.last().l;
             c  = &ca[reason(var(p))];
+            statistics.solveSteps ++;
 
             stack.pop();
         }
@@ -553,6 +561,7 @@ void Solver::analyzeFinal(Lit p, LSet& out_conflict)
                 for (int j = 1; j < c.size(); j++)
                     if (level(var(c[j])) > 0)
                         seen[var(c[j])] = 1;
+                statistics.solveSteps ++;
             }
             seen[x] = 0;
         }
@@ -602,6 +611,7 @@ CRef Solver::propagate()
             // Make sure the false literal is data[1]:
             CRef     cr        = i->cref;
             Clause&  c         = ca[cr];
+            statistics.solveSteps ++;
             Lit      false_lit = ~p;
             if (c[0] == false_lit)
                 c[0] = c[1], c[1] = false_lit;
@@ -672,6 +682,7 @@ void Solver::reduceDB()
         else
             learnts[j++] = learnts[i];
     }
+    statistics.solveSteps += learnts.size();
     learnts.shrink(i - j);
     checkGarbage();
 }
@@ -710,6 +721,7 @@ void Solver::removeSatisfied(vec<CRef>& cs)
             cs[j++] = cs[i];
         }
     }
+    statistics.solveSteps += cs.size();
     cs.shrink(i - j);
     add_tmp.clear();
 }
@@ -820,6 +832,7 @@ lbool Solver::search(int nof_conflicts)
                 learnts.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
+                statistics.solveSteps ++;
                 uncheckedEnqueue(learnt_clause[0], cr);
             }
 
@@ -940,6 +953,7 @@ lbool Solver::solve_()
     if (!ok) return l_False;
 
     solves++;
+    double solve_start = cpuTime();
     start_total_literals = start_total_literals == UINT64_MAX ? clauses_literals : start_total_literals;
 
     max_learnts = nClauses() * learntsize_factor;
@@ -978,6 +992,9 @@ lbool Solver::solve_()
         ok = false;
 
     cancelUntil(0);
+
+    statistics.solveSeconds += cpuTime() - solve_start; // stop timer and record time consumed until now
+
     return status;
 }
 
@@ -1123,7 +1140,7 @@ void Solver::relocAll(ClauseAllocator& to)
 
         // Note: it is not safe to call 'locked()' on a relocated clause. This is why we keep
         // 'dangling' reasons here. It is safe and does not hurt.
-        if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)]))){
+        if (reason(v) != CRef_Undef && statistics.solveSteps ++ && (ca[reason(v)].reloced() || locked(ca[reason(v)]))){
             assert(!isRemoved(reason(v)));
             ca.reloc(vardata[v].reason, to);
         }
