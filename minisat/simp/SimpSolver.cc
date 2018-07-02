@@ -113,6 +113,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     do_simp &= use_simplification;
     double simp_time = cpuTime();
     start_total_literals = start_total_literals == UINT64_MAX ? clauses_literals : start_total_literals;
+    start_num_clauses = start_num_clauses == UINT64_MAX ? num_clauses : start_num_clauses;
 
     if (do_simp){
         // Assumptions must be temporarily frozen to run variable elimination:

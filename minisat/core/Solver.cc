@@ -120,7 +120,8 @@ Solver::Solver() :
     // Statistics: (formerly in 'SolverStats')
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
-  , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0), start_total_literals(UINT64_MAX)
+  , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
+  , start_total_literals(UINT64_MAX), start_num_clauses(UINT64_MAX)
 
   , watches            (WatcherDeleted(ca))
   , order_heap         (VarOrderLt(activity))
@@ -955,6 +956,7 @@ lbool Solver::solve_()
     solves++;
     double solve_start = cpuTime();
     start_total_literals = start_total_literals == UINT64_MAX ? clauses_literals : start_total_literals;
+    start_num_clauses = start_num_clauses == UINT64_MAX ? num_clauses : start_num_clauses;
 
     max_learnts = nClauses() * learntsize_factor;
     if (max_learnts < min_learnts_lim)

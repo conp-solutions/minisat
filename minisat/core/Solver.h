@@ -157,7 +157,7 @@ public:
     // Statistics: (read-only member variable)
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
-    uint64_t dec_vars, num_clauses, num_learnts, clauses_literals, learnts_literals, max_literals, tot_literals, start_total_literals;
+    uint64_t dec_vars, num_clauses, num_learnts, clauses_literals, learnts_literals, max_literals, tot_literals, start_total_literals, start_num_clauses;
 
     /// Single object to hold most statistics
     struct SolverStats
