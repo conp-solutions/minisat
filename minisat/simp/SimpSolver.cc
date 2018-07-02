@@ -111,6 +111,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     lbool    result = l_True;
 
     do_simp &= use_simplification;
+    double simp_time = cpuTime();
     start_total_literals = start_total_literals == UINT64_MAX ? clauses_literals : start_total_literals;
 
     if (do_simp){
@@ -130,10 +131,14 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
         result = lbool(eliminate(turn_off_simp));
     }
 
+    simp_time = cpuTime() - simp_time; // stop timer and record time consumed until now
+
     if (result == l_True)
         result = Solver::solve_();
     else if (verbosity >= 1)
         printf("c ===============================================================================\n");
+
+    simp_time = cpuTime() - simp_time; // continue timer and consider time tracked already
 
     if (result == l_True && extend_model)
         extendModel();
@@ -142,6 +147,8 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
         // Unfreeze the assumptions that were frozen:
         for (int i = 0; i < extra_frozen.size(); i++)
             setFrozen(extra_frozen[i], false);
+
+    statistics.simpSeconds += cpuTime() - simp_time; // stop timer and record time consumed until now
 
     return result;
 }
@@ -168,6 +175,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
     if (use_simplification && clauses.size() == nclauses + 1){
         CRef          cr = clauses.last();
         const Clause& c  = ca[cr];
+        statistics.simpSteps ++;
 
         // NOTE: the clause is added to the queue immediately and then
         // again during 'gatherTouchedClauses()'. If nothing happens
@@ -194,6 +202,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
 void SimpSolver::removeClause(CRef cr, bool remove_from_proof)
 {
     const Clause& c = ca[cr];
+    statistics.simpSteps ++;
 
     if (use_simplification)
         for (int i = 0; i < c.size(); i++){
@@ -209,6 +218,7 @@ void SimpSolver::removeClause(CRef cr, bool remove_from_proof)
 bool SimpSolver::strengthenClause(CRef cr, Lit l)
 {
     Clause& c = ca[cr];
+    statistics.simpSteps ++;
     assert(decisionLevel() == 0);
     assert(use_simplification);
 
@@ -287,6 +297,7 @@ void SimpSolver::gatherTouchedClauses()
     for (i = j = 0; i < subsumption_queue.size(); i++)
         if (ca[subsumption_queue[i]].mark() == 0)
             ca[subsumption_queue[i]].mark(2);
+    statistics.simpSteps += subsumption_queue.size();
 
     for (i = 0; i < nVars(); i++)
         if (touched[i]){
@@ -297,11 +308,13 @@ void SimpSolver::gatherTouchedClauses()
                     ca[cs[j]].mark(2);
                 }
             touched[i] = 0;
+            statistics.simpSteps += cs.size();
         }
 
     for (i = 0; i < subsumption_queue.size(); i++)
         if (ca[subsumption_queue[i]].mark() == 2)
             ca[subsumption_queue[i]].mark(0);
+    statistics.simpSteps += subsumption_queue.size();
 
     n_touched = 0;
 }
@@ -348,12 +361,15 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
             Lit l = trail[bwdsub_assigns++];
             ca[bwdsub_tmpunit][0] = l;
             ca[bwdsub_tmpunit].calcAbstraction();
-            subsumption_queue.insert(bwdsub_tmpunit); }
+            subsumption_queue.insert(bwdsub_tmpunit);
+            statistics.simpSteps ++; }
 
         CRef    cr = subsumption_queue.peek(); subsumption_queue.pop();
         Clause& c  = ca[cr];
+        statistics.simpSteps ++;
 
         if (c.mark()) continue;
+
         c.setOnQueue(false);
         if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
             printf("c subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
@@ -373,8 +389,9 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
         for (int j = 0; j < _cs.size(); j++)
             if (c.mark())
                 break;
-            else if (!ca[cs[j]].mark() &&  cs[j] != cr && (subsumption_lim == -1 || ca[cs[j]].size() < subsumption_lim)){
-                Lit l = subsumes(c, ca[cs[j]]);
+            else if (statistics.simpSteps ++ &&
+                     !ca[cs[j]].mark() &&  cs[j] != cr && (subsumption_lim == -1 || ca[cs[j]].size() < subsumption_lim)){
+                Lit l = c.subsumes(ca[cs[j]]);
 
                 if (l == lit_Undef)
                     subsumed++, removeClause(cs[j]);
@@ -399,6 +416,7 @@ bool SimpSolver::asymm(Var v, CRef cr)
 {
     Clause& c = ca[cr];
     assert(decisionLevel() == 0);
+    statistics.simpSteps ++;
 
     if (c.mark() || satisfied(c)) return true;
 
@@ -484,6 +502,7 @@ bool SimpSolver::eliminateVar(Var v)
     vec<CRef>        pos, neg;
     for (int i = 0; i < cls.size(); i++)
         (find(ca[cls[i]], mkLit(v)) ? pos : neg).push(cls[i]);
+    statistics.simpSteps += cls.size();
 
     // Check wether the increase in number of clauses stays within the allowed ('grow'). Moreover, no
     // clause must exceed the limit on the maximal clause size (if it is set):
@@ -492,10 +511,13 @@ bool SimpSolver::eliminateVar(Var v)
     int clause_size = 0;
 
     for (int i = 0; i < pos.size(); i++)
+    {
+        statistics.simpSteps += neg.size();
         for (int j = 0; j < neg.size(); j++)
             if (merge(ca[pos[i]], ca[neg[j]], v, clause_size) && 
                 (++cnt > cls.size() + grow || (clause_lim != -1 && clause_size > clause_lim)))
                 return true;
+    }
 
     // Delete and store old clauses:
     eliminated[v] = true;
@@ -506,24 +528,31 @@ bool SimpSolver::eliminateVar(Var v)
         for (int i = 0; i < neg.size(); i++)
             mkElimClause(elimclauses, v, ca[neg[i]]);
         mkElimClause(elimclauses, mkLit(v));
+        statistics.simpSteps += neg.size();
     }else{
         for (int i = 0; i < pos.size(); i++)
             mkElimClause(elimclauses, v, ca[pos[i]]);
         mkElimClause(elimclauses, ~mkLit(v));
+        statistics.simpSteps += pos.size();
     }
 
     for (int i = 0; i < cls.size(); i++)
         removeClause(cls[i], false);
+    statistics.simpSteps += cls.size();
 
     // Produce clauses in cross product:
     vec<Lit>& resolvent = add_tmp;
     for (int i = 0; i < pos.size(); i++)
+    {
+        statistics.simpSteps += neg.size();
         for (int j = 0; j < neg.size(); j++)
             if (merge(ca[pos[i]], ca[neg[j]], v, resolvent) && !addClause_(resolvent))
                 return false;
+    }
 
     for (int i = 0; i < cls.size(); i++)
         extendProof(ca[cls[i]], true);
+    statistics.simpSteps += cls.size();
 
     // Free occurs list for this variable:
     occurs[v].clear(true);
@@ -551,6 +580,7 @@ bool SimpSolver::substitute(Var v, Lit x)
     vec<Lit>& subst_clause = add_tmp;
     for (int i = 0; i < cls.size(); i++){
         Clause& c = ca[cls[i]];
+        statistics.simpSteps ++;
 
         subst_clause.clear();
         for (int j = 0; j < c.size(); j++){
@@ -587,6 +617,9 @@ void SimpSolver::extendModel()
 
 bool SimpSolver::eliminate(bool turn_off_elim)
 {
+    double simp_time = cpuTime();
+    start_num_clauses = start_num_clauses == UINT64_MAX ? num_clauses : start_num_clauses;
+
     if (!simplify())
         return false;
     else if (!use_simplification)
@@ -666,6 +699,8 @@ bool SimpSolver::eliminate(bool turn_off_elim)
         printf("c |  Eliminated clauses:     %10.2f Mb                                      |\n",
                double(elimclauses.size() * sizeof(uint32_t)) / (1024*1024));
 
+    statistics.simpSeconds += cpuTime() - simp_time;
+
     return ok;
 }
 
@@ -685,12 +720,14 @@ void SimpSolver::relocAll(ClauseAllocator& to)
         vec<CRef>& cs = occurs[i];
         for (int j = 0; j < cs.size(); j++)
             ca.reloc(cs[j], to);
+        statistics.simpSteps += cs.size();
     }
 
     // Subsumption queue:
     //
     for (int i = subsumption_queue.size(); i > 0; i--){
         CRef cr = subsumption_queue.peek(); subsumption_queue.pop();
+        statistics.simpSteps ++;
         if (ca[cr].mark()) continue;
         ca.reloc(cr, to);
         subsumption_queue.insert(cr);
