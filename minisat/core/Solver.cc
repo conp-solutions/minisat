@@ -1116,6 +1116,12 @@ void Solver::printStats() const
     printf("c conflict literals     : %-12" PRIu64"   (%4.2f %% deleted)\n", tot_literals, (max_literals - tot_literals)*100 / (double)max_literals);
     if (mem_used != 0) printf("c Memory used           : %.2f MB\n", mem_used);
     printf("c CPU time              : %g s\n", cpu_time);
+
+    if(getenv("MINISAT_STEP_STATS"))
+        printf("c Stats: %lf solve, %lu steps, %lf simp, %lu steps, %d var, %lu cls, %lu lits, interrupted: %d\n",
+               statistics.solveSeconds, statistics.solveSteps, statistics.simpSeconds,
+               statistics.simpSteps, nVars(), start_num_clauses, start_total_literals,
+               asynch_interrupt);
 }
 
 
