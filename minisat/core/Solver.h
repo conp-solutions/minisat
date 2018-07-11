@@ -309,6 +309,8 @@ protected:
         return (int)(drand(seed) * size); }
 };
 
+// Method to update cli options from the environment variable MINISAT_RUNTIME_ARGS
+bool updateOptions();
 
 //=================================================================================================
 // Implementation of inline methods:
