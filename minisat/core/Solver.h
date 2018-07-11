@@ -131,6 +131,7 @@ public:
 
     // Mode of operation:
     //
+    bool      reparsed_options;   // Indicate whether the update parameter method has been used
     int       verbosity;
     double    var_decay;
     double    clause_decay;
