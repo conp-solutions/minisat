@@ -26,6 +26,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <math.h>
 
+#include <ctype.h>
+
 #include "minisat/mtl/Alg.h"
 #include "minisat/mtl/Sort.h"
 #include "minisat/utils/System.h"
@@ -56,12 +58,42 @@ static IntOption     opt_min_learnts_lim   (_cat, "min-learnts", "Minimum learnt
 //=================================================================================================
 // Constructor/Destructor:
 
+bool Minisat::updateOptions()
+{
+  if(getenv("MINISAT_RUNTIME_ARGS") == NULL)
+    return false;
+
+  char *args = strdup(getenv("MINISAT_RUNTIME_ARGS")); // make sure it's freed
+  if(!args) return false;
+  char *original_args = args;
+
+  const size_t len = strlen(args);
+
+  char* argv[len+2];
+  int count = 1;
+
+  argv[0] = "minisat";
+  while (isspace(*args)) ++args;
+  while(*args)
+  {
+    argv[count++] = args; // store current argument
+    while (*args && !isspace(*args)) ++args; // skip current token
+    if(!*args) break;
+    *args = (char)0; // separate current token
+    ++args;
+  }
+
+  parseOptions(count, argv, false);
+  free(original_args);
+  return false;
+}
 
 Solver::Solver() :
 
     // Parameters (user settable):
     //
-    verbosity        (0)
+    reparsed_options (updateOptions())
+  , verbosity        (0)
   , var_decay        (opt_var_decay)
   , clause_decay     (opt_clause_decay)
   , random_var_freq  (opt_random_var_freq)
