@@ -175,6 +175,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
         // consequence of how backward subsumption is used to mimic
         // forward subsumption.
         subsumption_queue.insert(cr);
+        ca[cr].setOnQueue(true);
         for (int i = 0; i < c.size(); i++){
             occurs[var(c[i])].push(cr);
             n_occ[c[i]]++;
@@ -212,7 +213,10 @@ bool SimpSolver::strengthenClause(CRef cr, Lit l)
 
     // FIX: this is too inefficient but would be nice to have (properly implemented)
     // if (!find(subsumption_queue, &c))
-    subsumption_queue.insert(cr);
+    if(!ca[cr].isOnQueue()){
+        subsumption_queue.insert(cr);
+        ca[cr].setOnQueue(true);
+    }
 
     extendProof(c, false, l);
 
@@ -349,7 +353,7 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
         Clause& c  = ca[cr];
 
         if (c.mark()) continue;
-
+        c.setOnQueue(false);
         if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
             printf("c subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
 
