@@ -243,19 +243,19 @@ bool SimpSolver::merge(const Clause& _ps, const Clause& _qs, Var v, vec<Lit>& ou
 {
     merges++;
     out_clause.clear();
-     MYFLAG++;
+    permDiff.clear();
 
     for(int i = 0 ; i < _ps.size();i++){
         if(var(_ps[i]) != v){
             out_clause.push(_ps[i]);
-            permDiff[_ps[i].x]=MYFLAG;
+            permDiff.add(toInt(_ps[i]));
         }
     }
 
     for(int i = 0 ; i < _qs.size();i++){
         if(var(_qs[i]) != v){
-            if(permDiff[_qs[i].x] != MYFLAG)
-                if(permDiff[(~_qs[i]).x] != MYFLAG)
+            if(!permDiff.contains(toInt(_qs[i])))
+                if(!permDiff.contains(toInt(~_qs[i])))
                     out_clause.push(_qs[i]);
                 else
                     return false;
@@ -723,13 +723,13 @@ Lit SimpSolver::subsumes(Clause & c1, Clause & c2){
         return lit_Error;
     }
 
-    MYFLAG++;
+    permDiff.clear();
 
     for(int i = 0 ; i < c2.size();i++)
-        permDiff[c2[i].x] = MYFLAG;
+        permDiff.add(toInt(c2[i]));
     for(int i = 0 ; i < c1.size();i++){
-        if(permDiff[c1[i].x] != MYFLAG){
-            if(ret == lit_Undef && permDiff[(~c1[i]).x] == MYFLAG)
+        if(!permDiff.contains(toInt(c1[i]))){
+            if(ret == lit_Undef && permDiff.contains(toInt(~c1[i])))
                 ret = c1[i];
             else
                 ret = lit_Error;

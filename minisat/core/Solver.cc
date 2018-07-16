@@ -142,7 +142,6 @@ Solver::Solver() :
 
   , proofFile          (0)
 {
-    MYFLAG = 0;
 }
 
 
@@ -178,8 +177,8 @@ Var Solver::newVar(lbool upol, bool dvar)
     decision .reserve(v);
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
-    permDiff.push(0);
-    permDiff.push(0);
+    permDiff.push();
+    permDiff.push();
     return v;
 }
 

@@ -25,6 +25,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/mtl/Heap.h"
 #include "minisat/mtl/Alg.h"
 #include "minisat/mtl/IntMap.h"
+#include "minisat/mtl/MarkArray.h"
 #include "minisat/utils/Options.h"
 #include "minisat/core/SolverTypes.h"
 
@@ -220,8 +221,8 @@ protected:
     double              progress_estimate;// Set by 'search()'.
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
     Var                 next_var;         // Next variable to be created.
-    vec<unsigned int>   permDiff;      // permDiff[var] contains the current conflict number... Used to count the number of  LBD
-    unsigned int        MYFLAG;
+
+    MarkArray           permDiff;         // Fast set presence checks, available per literal
 
     ClauseAllocator     ca;
 
