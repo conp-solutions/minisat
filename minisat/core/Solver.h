@@ -220,6 +220,9 @@ protected:
     double              progress_estimate;// Set by 'search()'.
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
     Var                 next_var;         // Next variable to be created.
+    vec<unsigned int>   permDiff;      // permDiff[var] contains the current conflict number... Used to count the number of  LBD
+    unsigned int        MYFLAG;
+
     ClauseAllocator     ca;
 
     vec<Var>            released_vars;
