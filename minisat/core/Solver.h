@@ -427,16 +427,36 @@ template <class T>
 inline void     Solver::extendProof  (const T& clause, bool remove, Lit drop) {
     if(!proofFile) return;
 
-    std::stringstream s;
-    if (remove)
-        s << "d ";
-
     assert((drop == lit_Undef || remove == false) && "make sure we only drop in case of remove");
-    for (int i = 0; i < clause.size(); i++)
+
+    if(binary_proof)
     {
-        if(drop == clause[i])
-            continue;
-        s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        binary_proof_buffer.push(remove ? 'd' : 'a');
+        if(drop == lit_Undef) {
+            for (int i = 0; i < clause.size(); i++)
+                binary_proof_add_literal(clause[i]);
+        } else {
+            for (int i = 0; i < clause.size(); i++)
+                if(drop != clause[i])
+                    binary_proof_add_literal(clause[i]);
+        }
+        binary_proof_buffer.push(0);
+        if (binary_proof_buffer.size() > 1048576) binary_proof_flush(proofFile);
+    } else {
+        std::stringstream s;
+        if (remove)
+            s << "d ";
+
+        if(drop == lit_Undef) // make sure we only pay in case the literal is specified
+        {
+            for (int i = 0; i < clause.size(); i++)
+                s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        } else {
+            for (int i = 0; i < clause.size(); i++)
+                if(drop != clause[i])
+                    s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        }
+        fprintf(proofFile, "%s0\n", s.str().c_str());
     }
 }
 
