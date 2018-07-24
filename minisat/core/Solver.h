@@ -127,8 +127,8 @@ public:
                                   // this vector represent the final conflict clause expressed in the assumptions.
 
     // DRAT proof:
-    bool      openProofFile(const char * path);           // Open the given path to write the proof to. Return success.
-    bool      finalizeProof(const bool addEmpty = false); // Close the proof file, if open. Add an empty clause, if requested. Return success.
+    bool      openProofFile(const char * path, bool binary = false); // Open the given path to write the proof to. Return success.
+    bool      finalizeProof(const bool addEmpty = false);            // Close the proof file, if open. Add an empty clause, if requested. Return success.
 
     // Mode of operation:
     //
