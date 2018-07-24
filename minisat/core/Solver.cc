@@ -141,6 +141,7 @@ Solver::Solver() :
   , asynch_interrupt   (false)
 
   , proofFile          (0)
+  , binary_proof       (false)
 {
 }
 
