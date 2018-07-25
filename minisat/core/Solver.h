@@ -127,8 +127,8 @@ public:
                                   // this vector represent the final conflict clause expressed in the assumptions.
 
     // DRAT proof:
-    bool      openProofFile(const char * path);           // Open the given path to write the proof to. Return success.
-    bool      finalizeProof(const bool addEmpty = false); // Close the proof file, if open. Add an empty clause, if requested. Return success.
+    bool      openProofFile(const char * path, bool binary = false); // Open the given path to write the proof to. Return success.
+    bool      finalizeProof(const bool addEmpty = false);            // Close the proof file, if open. Add an empty clause, if requested. Return success.
 
     // Mode of operation:
     //
@@ -285,9 +285,14 @@ protected:
     // DRAT proof:
     FILE*     proofFile;          // File handle for the file the proof is written to
     vec<Lit>  proofTmp;           // Temporary literals for handling proof extension
+    bool      binary_proof;       // Indicate whether we write the proof in binary of plain format
 
     template <class T>
     void      extendProof(const T& clause, bool remove = false, Lit drop = lit_Undef); // Extend the proof - if open - with the given clause, and extend with 'd ' if requested. Drop the drop literal from the clause, in case it's specified.
+
+    vec<unsigned char> binary_proof_buffer;      /// buffer for the current binary proof blob, to be flushed once in a while
+    void binary_proof_add_literal(Lit l);        /// add literal to binary proof
+    void binary_proof_flush(FILE* drup_file);    /// write the current state of the buffer to the proof file, and clean the buffer
 
     // Misc:
     //
@@ -422,18 +427,51 @@ template <class T>
 inline void     Solver::extendProof  (const T& clause, bool remove, Lit drop) {
     if(!proofFile) return;
 
-    std::stringstream s;
-    if (remove)
-        s << "d ";
-
     assert((drop == lit_Undef || remove == false) && "make sure we only drop in case of remove");
-    for (int i = 0; i < clause.size(); i++)
+
+    if(binary_proof)
     {
-        if(drop == clause[i])
-            continue;
-        s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        binary_proof_buffer.push(remove ? 'd' : 'a');
+        if(drop == lit_Undef) {
+            for (int i = 0; i < clause.size(); i++)
+                binary_proof_add_literal(clause[i]);
+        } else {
+            for (int i = 0; i < clause.size(); i++)
+                if(drop != clause[i])
+                    binary_proof_add_literal(clause[i]);
+        }
+        binary_proof_buffer.push(0);
+        if (binary_proof_buffer.size() > 1048576) binary_proof_flush(proofFile);
+    } else {
+        std::stringstream s;
+        if (remove)
+            s << "d ";
+
+        if(drop == lit_Undef) // make sure we only pay in case the literal is specified
+        {
+            for (int i = 0; i < clause.size(); i++)
+                s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        } else {
+            for (int i = 0; i < clause.size(); i++)
+                if(drop != clause[i])
+                    s << (var(clause[i]) + 1) * (-2 * sign(clause[i]) + 1) << " ";
+        }
+        fprintf(proofFile, "%s0\n", s.str().c_str());
     }
-    fprintf(proofFile, "%s0\n", s.str().c_str());
+}
+
+inline void Solver::binary_proof_add_literal(Lit l){
+    unsigned int u = 2 * (var(l) + 1) + sign(l);
+    do{
+        binary_proof_buffer.push(u & 0x7f | 0x80);
+        u = u >> 7;
+    } while (u);
+    binary_proof_buffer.last() &= 0x7f; // End marker of this unsigned number.
+}
+
+inline void Solver::binary_proof_flush(FILE* drup_file){
+    fwrite_unlocked(&(binary_proof_buffer[0]), sizeof(unsigned char), binary_proof_buffer.size(), proofFile);
+    binary_proof_buffer.clear();
 }
 
 //=================================================================================================

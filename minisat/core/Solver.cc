@@ -141,6 +141,7 @@ Solver::Solver() :
   , asynch_interrupt   (false)
 
   , proofFile          (0)
+  , binary_proof       (false)
 {
 }
 
@@ -1162,12 +1163,15 @@ void Solver::garbageCollect()
 }
 
 
-bool Solver::openProofFile(const char *path)
+bool Solver::openProofFile(const char *path, bool binary)
 {
     if(proofFile) return false;
 
     proofFile = fopen(path, "wb");
-    if(proofFile == 0) return false;
+    if(proofFile == 0)
+         return false;
+
+    binary_proof = binary;
 
     return true;
 }
@@ -1178,6 +1182,9 @@ bool Solver::finalizeProof(const bool addEmpty)
 
     if(addEmpty) fprintf(proofFile, "0\n");
 
-    if(fclose(proofFile) != 0) return false;
-    return true;
+    if(binary_proof) binary_proof_flush(proofFile);
+
+    bool ret = fclose(proofFile) == 0;
+    proofFile = 0;
+    return ret;
 }

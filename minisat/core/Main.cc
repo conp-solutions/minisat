@@ -68,6 +68,7 @@ int main(int argc, char** argv)
         BoolOption   strictp("MAIN", "strict", "Validate DIMACS header during parsing.", false);
         BoolOption   model  ("MAIN", "model", "Print the values for the model in case of satisfiable.", true);
         StringOption proof  ("MAIN", "proof",  "Given a filename, a DRAT proof will be written there.");
+        BoolOption   binproof("MAIN", "bin-proof", "Emit the proof in binary format.", false);
         
         parseOptions(argc, argv, true);
 
@@ -97,7 +98,7 @@ int main(int argc, char** argv)
             printf("c |                                                                             |\n"); }
         
         if((const char *)proof)
-            if(!S.openProofFile((const char *)proof)){
+            if(!S.openProofFile((const char *)proof, (bool)binproof)){
                 printf("c ERROR! Could not open proof file: %s\n", (const char *)proof);
                 exit(1);
             }
