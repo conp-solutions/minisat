@@ -146,7 +146,8 @@ class Clause {
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned size      : 27; }                        header;
+        unsigned onQueue   : 1;
+        unsigned size      : 26; }                        header;
 #if defined __clang__
   #pragma clang diagnostic push
 #elif defined __GNUC__
@@ -178,6 +179,7 @@ class Clause {
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
+        header.onQueue   = 0;
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -223,6 +225,8 @@ public:
     uint32_t     mark        ()      const   { return header.mark; }
     void         mark        (uint32_t m)    { header.mark = m; }
     const Lit&   last        ()      const   { return data[header.size-1].lit; }
+    bool         isOnQueue   ()      const   { return header.onQueue; }
+    void         setOnQueue  (bool b)        { header.onQueue = b; }
 
     bool         reloced     ()      const   { return header.reloced; }
     CRef         relocation  ()      const   { return data[0].rel; }

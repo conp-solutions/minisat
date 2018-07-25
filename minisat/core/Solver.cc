@@ -141,7 +141,8 @@ Solver::Solver() :
   , asynch_interrupt   (false)
 
   , proofFile          (0)
-{}
+{
+}
 
 
 Solver::~Solver()
@@ -176,6 +177,8 @@ Var Solver::newVar(lbool upol, bool dvar)
     decision .reserve(v);
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
+    permDiff.push();
+    permDiff.push();
     return v;
 }
 

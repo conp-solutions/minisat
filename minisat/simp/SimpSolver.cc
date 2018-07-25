@@ -175,6 +175,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
         // consequence of how backward subsumption is used to mimic
         // forward subsumption.
         subsumption_queue.insert(cr);
+        ca[cr].setOnQueue(true);
         for (int i = 0; i < c.size(); i++){
             occurs[var(c[i])].push(cr);
             n_occ[c[i]]++;
@@ -212,7 +213,10 @@ bool SimpSolver::strengthenClause(CRef cr, Lit l)
 
     // FIX: this is too inefficient but would be nice to have (properly implemented)
     // if (!find(subsumption_queue, &c))
-    subsumption_queue.insert(cr);
+    if(!ca[cr].isOnQueue()){
+        subsumption_queue.insert(cr);
+        ca[cr].setOnQueue(true);
+    }
 
     extendProof(c, false, l);
 
@@ -239,28 +243,24 @@ bool SimpSolver::merge(const Clause& _ps, const Clause& _qs, Var v, vec<Lit>& ou
 {
     merges++;
     out_clause.clear();
+    permDiff.clear();
 
-    bool  ps_smallest = _ps.size() < _qs.size();
-    const Clause& ps  =  ps_smallest ? _qs : _ps;
-    const Clause& qs  =  ps_smallest ? _ps : _qs;
-
-    for (int i = 0; i < qs.size(); i++){
-        if (var(qs[i]) != v){
-            for (int j = 0; j < ps.size(); j++)
-                if (var(ps[j]) == var(qs[i])){
-                    if (ps[j] == ~qs[i])
-                        return false;
-                    else
-                        goto next;
-                }
-            out_clause.push(qs[i]);
+    for(int i = 0 ; i < _ps.size();i++){
+        if(var(_ps[i]) != v){
+            out_clause.push(_ps[i]);
+            permDiff.add(toInt(_ps[i]));
         }
-        next:;
     }
 
-    for (int i = 0; i < ps.size(); i++)
-        if (var(ps[i]) != v)
-            out_clause.push(ps[i]);
+    for(int i = 0 ; i < _qs.size();i++){
+        if(var(_qs[i]) != v){
+            if(!permDiff.contains(toInt(_qs[i])))
+                if(!permDiff.contains(toInt(~_qs[i])))
+                    out_clause.push(_qs[i]);
+                else
+                    return false;
+        }
+    }
 
     return true;
 }
@@ -270,30 +270,11 @@ bool SimpSolver::merge(const Clause& _ps, const Clause& _qs, Var v, vec<Lit>& ou
 bool SimpSolver::merge(const Clause& _ps, const Clause& _qs, Var v, int& size)
 {
     merges++;
+    vec<Lit> c;
+    bool ret = merge(_ps, _qs, v, c);
+    size=c.size();
+    return ret;
 
-    bool  ps_smallest = _ps.size() < _qs.size();
-    const Clause& ps  =  ps_smallest ? _qs : _ps;
-    const Clause& qs  =  ps_smallest ? _ps : _qs;
-    const Lit*  __ps  = (const Lit*)ps;
-    const Lit*  __qs  = (const Lit*)qs;
-
-    size = ps.size()-1;
-
-    for (int i = 0; i < qs.size(); i++){
-        if (var(__qs[i]) != v){
-            for (int j = 0; j < ps.size(); j++)
-                if (var(__ps[j]) == var(__qs[i])){
-                    if (__ps[j] == ~__qs[i])
-                        return false;
-                    else
-                        goto next;
-                }
-            size++;
-        }
-        next:;
-    }
-
-    return true;
 }
 
 
@@ -372,7 +353,7 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
         Clause& c  = ca[cr];
 
         if (c.mark()) continue;
-
+        c.setOnQueue(false);
         if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
             printf("c subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
 
@@ -392,7 +373,7 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
             if (c.mark())
                 break;
             else if (!ca[cs[j]].mark() &&  cs[j] != cr && (subsumption_lim == -1 || ca[cs[j]].size() < subsumption_lim)){
-                Lit l = c.subsumes(ca[cs[j]]);
+                Lit l = subsumes(c, ca[cs[j]]);
 
                 if (l == lit_Undef)
                     subsumed++, removeClause(cs[j]);
@@ -733,4 +714,26 @@ void SimpSolver::garbageCollect()
         printf("c |  Garbage collection:   %12d bytes => %12d bytes             |\n",
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
+}
+
+Lit SimpSolver::subsumes(Clause & c1, Clause & c2){
+
+    Lit ret = lit_Undef;
+    if(c1.size() > c2.size() || (c1.abstraction() & ~c2.abstraction()) != 0){
+        return lit_Error;
+    }
+
+    permDiff.clear();
+
+    for(int i = 0 ; i < c2.size();i++)
+        permDiff.add(toInt(c2[i]));
+    for(int i = 0 ; i < c1.size();i++){
+        if(!permDiff.contains(toInt(c1[i]))){
+            if(ret == lit_Undef && permDiff.contains(toInt(~c1[i])))
+                ret = c1[i];
+            else
+                ret = lit_Error;
+        }
+    }
+    return ret;
 }
