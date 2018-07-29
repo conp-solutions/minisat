@@ -54,7 +54,7 @@ static IntOption     opt_restart_first     (_cat, "rfirst",      "The base resta
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 static IntOption     opt_min_learnts_lim   (_cat, "min-learnts", "Minimum learnt clause limit",  0, IntRange(0, INT32_MAX));
-
+static BoolOption    opt_cbh               (_cat, "cbh",         "Use CBH decision heuristic", false);
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -137,6 +137,7 @@ Solver::Solver() :
   , progress_estimate  (0)
   , remove_satisfied   (true)
   , next_var           (0)
+  , no_cbh             (!opt_cbh)
 
     // Resource constraints:
     //
@@ -184,6 +185,9 @@ Var Solver::newVar(lbool upol, bool dvar)
     setDecisionVar(v, dvar);
     permDiff.push();
     permDiff.push();
+
+    cbh.conflicted.push(0);
+
     return v;
 }
 
@@ -202,6 +206,8 @@ void Solver::reserveVars(Var v)
     trail    .capacity(v+1);
 
     permDiff.reserve(2 * v);
+
+    cbh.conflicted.capacity(v);
 }
 
 // Note: at the moment, only unassigned variable will be released (this is to avoid duplicate
@@ -403,7 +409,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
             Lit q = c[j];
 
             if (!seen[var(q)] && level(var(q)) > 0){
-                varBumpActivity(var(q));
+	        if(no_cbh){
+                  varBumpActivity(var(q));
+		} else {
+                  varBumpActivity(var(q), .5);
+                  add_tmp.push(q);
+		  cbh.conflicted[var(q)] = conflicts;
+		}
                 seen[var(q)] = 1;
                 if (level(var(q)) >= decisionLevel())
                     pathC++;
@@ -471,6 +483,14 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+
+    if(!no_cbh){
+      for (int i = 0; i < add_tmp.size(); i++){
+          Var v = var(add_tmp[i]);
+          if (level(v) >= out_btlevel - 1)
+              varBumpActivity(v, 1);
+      }
+      add_tmp.clear(); }
 }
 
 
@@ -798,6 +818,17 @@ bool Solver::simplify()
     return true;
 }
 
+void Solver::updateQ(Var v, double multi) {
+    uint32_t age = conflicts - cbh.conflicted[v] + 1;
+    double adjusted_reward = cbh.step_size * multi / age;
+    double old_activity = activity[v];
+    activity[v] = adjusted_reward + ((1 - cbh.step_size) * old_activity);
+    if (order_heap.inHeap(v))
+        if (activity[v] > old_activity)
+            order_heap.decrease(v);
+        else
+            order_heap.increase(v);
+}
 
 /*_________________________________________________________________________________________________
 |
@@ -822,11 +853,18 @@ lbool Solver::search(int nof_conflicts)
 
     for (;;){
         CRef confl = propagate();
+
+        for (int a = cbh.action; a < trail.size(); a++) {
+            Var v = var(trail[a]);
+            updateQ(v, confl == CRef_Undef ? 0.9 : 1.0); }
+
         if (confl != CRef_Undef){
             // CONFLICT
 
             if (var_decay < target_var_decay && --var_decay_timer == 0) {
                 var_decay_timer = 5000; var_decay += 0.01; }
+
+            if (cbh.step_size > 0.06) cbh.step_size -= 0.000001;
 
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
@@ -834,6 +872,7 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
+            cbh.action = trail.size();
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
@@ -907,6 +946,7 @@ lbool Solver::search(int nof_conflicts)
 
             // Increase decision level and enqueue 'next'
             newDecisionLevel();
+            cbh.action = trail.size();
             uncheckedEnqueue(next);
         }
     }

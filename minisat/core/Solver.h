@@ -235,6 +235,19 @@ protected:
 
     MarkArray           permDiff;         // Fast set presence checks, available per literal
 
+    struct CBH {
+      double step_size;
+      int action;
+      vec<uint32_t> conflicted;
+
+      CBH() : step_size(0.4), action(0) {}
+    };
+
+    bool no_cbh;                           // do not use cbh search heuristic
+    CBH cbh;                               // do use cbh search heuristic
+
+    void updateQ(Var v, double multi);
+
     ClauseAllocator     ca;
 
     vec<Var>            released_vars;
