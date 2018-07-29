@@ -1217,7 +1217,7 @@ bool Solver::finalizeProof(const bool addEmpty)
 
     if(addEmpty) fprintf(proofFile, "0\n");
 
-    if(binary_proof) binary_proof_flush(proofFile);
+    if(binary_proof) binary_proof_flush();
 
     bool ret = fclose(proofFile) == 0;
     proofFile = 0;

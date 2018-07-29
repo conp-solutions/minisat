@@ -303,7 +303,7 @@ protected:
 
     vec<unsigned char> binary_proof_buffer;      /// buffer for the current binary proof blob, to be flushed once in a while
     void binary_proof_add_literal(Lit l);        /// add literal to binary proof
-    void binary_proof_flush(FILE* drup_file);    /// write the current state of the buffer to the proof file, and clean the buffer
+    void binary_proof_flush();                   /// write the current state of the buffer to the proof file, and clean the buffer
 
     // Misc:
     //
@@ -452,7 +452,7 @@ inline void     Solver::extendProof  (const T& clause, bool remove, Lit drop) {
                     binary_proof_add_literal(clause[i]);
         }
         binary_proof_buffer.push(0);
-        if (binary_proof_buffer.size() > 1048576) binary_proof_flush(proofFile);
+        if (binary_proof_buffer.size() > 1048576) binary_proof_flush();
     } else {
         std::stringstream s;
         if (remove)
@@ -480,7 +480,7 @@ inline void Solver::binary_proof_add_literal(Lit l){
     binary_proof_buffer.last() &= 0x7f; // End marker of this unsigned number.
 }
 
-inline void Solver::binary_proof_flush(FILE* drup_file){
+inline void Solver::binary_proof_flush(){
     fwrite_unlocked(&(binary_proof_buffer[0]), sizeof(unsigned char), binary_proof_buffer.size(), proofFile);
     binary_proof_buffer.clear();
 }
