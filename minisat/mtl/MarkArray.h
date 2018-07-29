@@ -55,6 +55,9 @@ public:
         permDiff.clear();
         permDiff.growTo(s, 0);
         MYFLAG = 1; } }
+
+    void reserve   (int capacity) {
+        permDiff.capacity(capacity);}
 };
 
 

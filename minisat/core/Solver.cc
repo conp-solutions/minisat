@@ -200,6 +200,8 @@ void Solver::reserveVars(Var v)
     user_pol .reserve(v+1);
     decision .reserve(v);
     trail    .capacity(v+1);
+
+    permDiff.reserve(2 * v);
 }
 
 // Note: at the moment, only unassigned variable will be released (this is to avoid duplicate
