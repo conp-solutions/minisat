@@ -134,7 +134,8 @@ public:
     //
     bool      reparsed_options;   // Indicate whether the update parameter method has been used
     int       verbosity;
-    double    var_decay;
+    double    var_decay, target_var_decay;
+    uint32_t  var_decay_timer;
     double    clause_decay;
     double    random_var_freq;
     double    random_seed;

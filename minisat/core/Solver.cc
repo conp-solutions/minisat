@@ -41,7 +41,8 @@ using namespace Minisat;
 
 static const char* _cat = "CORE";
 
-static DoubleOption  opt_var_decay         (_cat, "var-decay",   "The variable activity decay factor",            0.95,     DoubleRange(0, false, 1, false));
+static DoubleOption  opt_var_decay         (_cat, "var-decay",     "The variable activity decay factor to start with",   0.95, DoubleRange(0, false, 1, false));
+static DoubleOption  opt_target_var_decay  (_cat, "tar-var-decay", "The variable activity decay factor to slowly reach", 0.95, DoubleRange(0, false, 1, false));
 static DoubleOption  opt_clause_decay      (_cat, "cla-decay",   "The clause activity decay factor",              0.999,    DoubleRange(0, false, 1, false));
 static DoubleOption  opt_random_var_freq   (_cat, "rnd-freq",    "The frequency with which the decision heuristic tries to choose a random variable", 0, DoubleRange(0, true, 1, true));
 static DoubleOption  opt_random_seed       (_cat, "rnd-seed",    "Used by the random variable selection",         91648253, DoubleRange(0, false, HUGE_VAL, false));
@@ -95,6 +96,8 @@ Solver::Solver() :
     reparsed_options (updateOptions())
   , verbosity        (0)
   , var_decay        (opt_var_decay)
+  , target_var_decay (opt_target_var_decay)
+  , var_decay_timer  (5000)
   , clause_decay     (opt_clause_decay)
   , random_var_freq  (opt_random_var_freq)
   , random_seed      (opt_random_seed)
@@ -819,6 +822,10 @@ lbool Solver::search(int nof_conflicts)
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
+
+            if (var_decay < target_var_decay && --var_decay_timer == 0) {
+                var_decay_timer = 5000; var_decay += 0.01; }
+
             conflicts++; conflictC++;
             if (decisionLevel() == 0) return l_False;
 
