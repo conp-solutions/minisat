@@ -396,6 +396,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
+    const int &nDecisionLevel = level(var(ca[confl][0]));
 
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
@@ -417,7 +418,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                     cbh.conflicted[var(q)] = conflicts;
                 }
                 seen[var(q)] = 1;
-                if (level(var(q)) >= decisionLevel())
+                if (level(var(q)) >= nDecisionLevel)
                     pathC++;
                 else
                     out_learnt.push(q);
@@ -425,8 +426,11 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         }
         
         // Select next clause to look at:
-        while (!seen[var(trail[index--])]);
-        p     = trail[index+1];
+        do {
+            while (!seen[var(trail[index--])]);
+            p  = trail[index+1];
+        } while (level(var(p)) < nDecisionLevel);
+
         confl = reason(var(p));
         seen[var(p)] = 0;
         pathC--;
