@@ -342,6 +342,8 @@ protected:
     bool     withinBudget     ()      const;
     void     relocAll         (ClauseAllocator& to);
 
+    ConflictData findConflictLevel(CRef cr);
+
     // Static helpers:
     //
 

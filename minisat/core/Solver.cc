@@ -1297,3 +1297,46 @@ bool Solver::finalizeProof(const bool addEmpty)
     proofFile = 0;
     return ret;
 }
+
+inline Solver::ConflictData Solver::findConflictLevel(CRef cind)
+{
+    ConflictData data;
+    Clause& conflCls = ca[cind];
+    data.highestLevel = level(var(conflCls[0]));
+    if (data.highestLevel == decisionLevel() && level(var(conflCls[1])) == decisionLevel())
+    {
+        return data;
+    }
+
+    int highestId = 0;
+    data.onlyOneLitFromHighest = true;
+
+    // find the largest decision level in the clause
+    for (int nLitId = 1; nLitId < conflCls.size(); ++nLitId)
+    {
+        int nLevel = level(var(conflCls[nLitId]));
+        if (nLevel > data.highestLevel)
+        {
+            highestId = nLitId;
+            data.highestLevel = nLevel;
+            data.onlyOneLitFromHighest = true;
+        }
+        else if (nLevel == data.highestLevel && data.onlyOneLitFromHighest == true)
+        {
+            data.onlyOneLitFromHighest = false;
+        }
+    }
+
+    // update watched literal and watch lists
+    if (highestId != 0)
+    {
+        conflCls.swap(0, highestId);
+        if (highestId > 1)
+        {
+            remove(watches[~conflCls[highestId]], Watcher(cind, conflCls[1]));
+            watches[~conflCls[0]].push(Watcher(cind, conflCls[1]));
+        }
+    }
+
+    return data;
+}
