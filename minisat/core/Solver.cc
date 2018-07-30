@@ -669,8 +669,33 @@ CRef Solver::propagate()
                 // Copy the remaining watches:
                 while (i < end)
                     *j++ = *i++;
-            }else
-                uncheckedEnqueue(first, cr);
+            }else{
+                const int currLevel = level(var(p));
+                if (currLevel == decisionLevel())
+                {
+                    uncheckedEnqueue(first, currLevel, cr);
+                } else {
+                    int nMaxLevel = currLevel, nMaxInd = 1;
+
+                    // pass over all the literals in the clause and find the one with the biggest level
+                    for (int nInd = 2; nInd < c.size(); ++nInd) {
+                        const int& nLevel = level(var(c[nInd]));
+                        if (nLevel > nMaxLevel)
+                        {
+                            nMaxLevel = nLevel;
+                            nMaxInd = nInd;
+                        }
+                    }
+
+                    if (nMaxInd != 1)
+                    {
+                        c.swap(1,nMaxInd);
+                        *j--; // undo last watch
+                        watches[~c[1]].push(w);
+                    }
+                    uncheckedEnqueue(first, nMaxLevel, cr);
+                }
+            }
 
         NextClause:;
         }
