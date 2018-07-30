@@ -409,13 +409,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
             Lit q = c[j];
 
             if (!seen[var(q)] && level(var(q)) > 0){
-	        if(no_cbh){
-                  varBumpActivity(var(q));
-		} else {
-                  varBumpActivity(var(q), .5);
-                  add_tmp.push(q);
-		  cbh.conflicted[var(q)] = conflicts;
-		}
+                if(no_cbh){
+                    varBumpActivity(var(q));
+                } else {
+                    varBumpActivity(var(q), .5);
+                    add_tmp.push(q);
+                    cbh.conflicted[var(q)] = conflicts;
+                }
                 seen[var(q)] = 1;
                 if (level(var(q)) >= decisionLevel())
                     pathC++;
