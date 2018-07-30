@@ -922,11 +922,32 @@ lbool Solver::search(int nof_conflicts)
             if (cbh.step_size > 0.06) cbh.step_size -= 0.000001;
 
             conflicts++; conflictC++;
-            if (decisionLevel() == 0) return l_False;
+
+            ConflictData data = findConflictLevel(confl);
+            if (data.highestLevel == 0) return l_False;
+            if (data.onlyOneLitFromHighest)
+            {
+                cancelUntil(data.highestLevel - 1);
+                continue;
+            }
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level);
-            cancelUntil(backtrack_level);
+
+            // backtrack non-chronological, in case:
+            if (chrono > -1 &&  // chrono is activated
+               (confl_to_chrono < 0 || confl_to_chrono <= conflicts) && // we passed the number of initial conflicts to perform
+               (decisionLevel() - backtrack_level) >= chrono)  // backtracking distance is higher than the specified limit
+            {
+                ++chrono_backtrack;
+                cancelUntil(data.highestLevel-1);
+            }
+            else // default behavior
+            {
+                ++non_chrono_backtrack;
+                cancelUntil(backtrack_level);
+            }
+
             cbh.action = trail.size();
 
             if (learnt_clause.size() == 1){
