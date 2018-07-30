@@ -159,6 +159,7 @@ public:
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, num_clauses, num_learnts, clauses_literals, learnts_literals, max_literals, tot_literals, start_total_literals, start_num_clauses;
+    uint64_t chrono_backtrack, non_chrono_backtrack;
 
     /// Single object to hold most statistics
     struct SolverStats
@@ -247,6 +248,19 @@ protected:
     CBH cbh;                               // do use cbh search heuristic
 
     void updateQ(Var v, double multi);
+
+    struct ConflictData {
+        ConflictData() :
+            highestLevel(-1),
+            onlyOneLitFromHighest(false)
+        {}
+
+        int highestLevel;
+        bool onlyOneLitFromHighest;
+    };
+
+    int confl_to_chrono;
+    int chrono;
 
     ClauseAllocator     ca;
 

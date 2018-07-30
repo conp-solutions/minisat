@@ -55,6 +55,8 @@ static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interv
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 static IntOption     opt_min_learnts_lim   (_cat, "min-learnts", "Minimum learnt clause limit",  0, IntRange(0, INT32_MAX));
 static BoolOption    opt_cbh               (_cat, "cbh",         "Use CBH decision heuristic", false);
+static IntOption     opt_chrono            (_cat, "chrono",      "Perform non-chronological backjumping for jumps larger than (set to 100)", -1, IntRange(-1, INT32_MAX));
+static IntOption     opt_conf_to_chrono    (_cat, "confl-to-chrono",  "Do not perform non-chronological backjumps before passing X conflicts", 4000, IntRange(-1, INT32_MAX));
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -125,6 +127,7 @@ Solver::Solver() :
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
   , start_total_literals(UINT64_MAX), start_num_clauses(UINT64_MAX)
+  , chrono_backtrack(0), non_chrono_backtrack(0)
 
   , watches            (WatcherDeleted(ca))
   , order_heap         (VarOrderLt(activity))
@@ -138,6 +141,8 @@ Solver::Solver() :
   , remove_satisfied   (true)
   , next_var           (0)
   , no_cbh             (!opt_cbh)
+  , confl_to_chrono    (opt_conf_to_chrono)
+  , chrono             (opt_chrono)
 
     // Resource constraints:
     //
