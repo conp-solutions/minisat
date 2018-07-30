@@ -327,18 +327,39 @@ bool Solver::satisfied(const Clause& c) const {
 
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
-void Solver::cancelUntil(int level) {
-    if (decisionLevel() > level){
-        for (int c = trail.size()-1; c >= trail_lim[level]; c--){
+void Solver::cancelUntil(int bLevel) {
+    if (decisionLevel() > bLevel){
+        add_tmp.clear();
+
+        for (int c = trail.size()-1; c >= trail_lim[bLevel]; c--){
             Var      x  = var(trail[c]);
-            assigns [x] = l_Undef;
-            if (phase_saving > 1 || (phase_saving == 1 && c > trail_lim.last()))
-                polarity[x] = sign(trail[c]);
-            insertVarOrder(x); }
-        qhead = trail_lim[level];
-        trail.shrink(trail.size() - trail_lim[level]);
-        trail_lim.shrink(trail_lim.size() - level);
-    } }
+
+            if (level(x) <= bLevel)
+            {
+                add_tmp.push(trail[c]);
+            }
+            else
+            {
+                double old_activity = activity[x];
+                if (order_heap.inHeap(x)) {
+                    if (activity[x] > old_activity)
+                        order_heap.decrease(x);
+                    else
+                        order_heap.increase(x);
+                }
+                assigns [x] = l_Undef;
+                if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
+                    polarity[x] = sign(trail[c]);
+                insertVarOrder(x); }
+        }
+        qhead = trail_lim[bLevel];
+        trail.shrink(trail.size() - trail_lim[bLevel]);
+        trail_lim.shrink(trail_lim.size() - bLevel);
+
+        for (int nLitId = add_tmp.size() - 1; nLitId >= 0; --nLitId)
+            trail.push_(add_tmp[nLitId]);
+        add_tmp.clear();
+     } }
 
 
 //=================================================================================================
