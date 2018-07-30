@@ -601,11 +601,11 @@ void Solver::analyzeFinal(Lit p, LSet& out_conflict)
 }
 
 
-void Solver::uncheckedEnqueue(Lit p, CRef from)
+void Solver::uncheckedEnqueue(Lit p, int level, CRef from)
 {
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
-    vardata[var(p)] = mkVarData(from, decisionLevel());
+    vardata[var(p)] = mkVarData(from, level);
     trail.push_(p);
 }
 
@@ -911,7 +911,7 @@ lbool Solver::search(int nof_conflicts)
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
                 statistics.solveSteps ++;
-                uncheckedEnqueue(learnt_clause[0], cr);
+                uncheckedEnqueue(learnt_clause[0], backtrack_level, cr);
             }
 
             extendProof(learnt_clause);
@@ -976,7 +976,7 @@ lbool Solver::search(int nof_conflicts)
             // Increase decision level and enqueue 'next'
             newDecisionLevel();
             cbh.action = trail.size();
-            uncheckedEnqueue(next);
+            uncheckedEnqueue(next, decisionLevel());
         }
     }
 }
