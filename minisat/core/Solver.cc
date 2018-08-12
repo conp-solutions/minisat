@@ -1433,3 +1433,222 @@ inline Solver::ConflictData Solver::findConflictLevel(CRef cind)
 
     return data;
 }
+
+int Solver::simplifyLearntLCM(Clause& c, int vivificationConfig)
+{
+    int roundLits[3];
+    int round = 0;
+    roundLits[0] = c.size();
+
+    // apply simplification multiple times to the same clause
+    while (vivificationConfig > 0 && c.size() > 1) {
+        bool minimized = false;
+        round ++;
+        const int roundViviConfig = vivificationConfig % 5;
+        vivificationConfig /= 5;
+
+        assert(round <= 2 && "have at most 2 rounds");
+        // if this round should not perform any simplification, jump to the next round (and work with reversed clause)
+        if (roundViviConfig == 0) {roundLits[round] = c.size(); continue; }
+
+        // reverse clause in second iteration!
+        if (round == 2) c.reverse();
+
+        Lit impliedLit = lit_Undef; // literal that is implied by the negation of some other literals
+        int i = 0, j = 0, maxLevel = 0;
+        CRef confl = CRef_Undef;
+
+        assert(decisionLevel() == 0 && "LCM has to be performed on level 0");
+        const int inputSize = c.size();
+        for (i = 0, j = 0; i < c.size(); i++) {
+            if (value(c[i]) == l_Undef) {
+                newDecisionLevel();
+                uncheckedEnqueue(~c[i]);
+                c[j++] = c[i];
+                confl = propagate();
+                if (confl != CRef_Undef) {
+                    // F \bigvee \neg l_1 \land ... \land \neg l_{i-1} -> \bot \equiv F \land (l_1 \lor ... \lor l_{i-1})
+                    // or something similar, based on conflict analysis with the clause we just got as conflict
+                    break;
+                }
+            } else if (value(c[i]) == l_True) {
+                if (roundViviConfig > 2) { // <- enable only in case conflict resultion is performed below. the actual break does not work!
+                    impliedLit = c[i];     // store to be able to use it for conflict analysis afterwards
+                    c[j++] = c[i];         // not necessary, as will be resolved out later anyways (or use as basis for conflict)?
+                    confl = reason(var(c[i]));
+                    break;
+                } else {
+                    c[j++] = c[i]; // keep the satisfied literal, because moving it away can fail!
+                    break; // this part until c[j] is subsumed by other a combination of other clauses in the formula (seems to be hyper-resolution to get the subsumed clause)
+                }
+            } else {
+                assert(value(c[i]) == l_False && "there are only 3 case for a truth assignment");
+                // F \land (-l1,...,-lk} -> {-li}
+            }
+        }
+        c.shrink(c.size() - j);
+
+        if (roundViviConfig > 1 && (confl != CRef_Undef)) {
+            conflict.clear(); // use the conflict vector, as it's a class member. make sure to clear it afterwards again!
+
+            analyzeFinal(confl, conflict);
+            if (impliedLit != lit_Undef)
+                conflict.insert(impliedLit); // add the final literal of the clause here, has to be done after analyzeFinal!
+
+            if (conflict.size() < c.size()) {
+                lcm.nbConflLits += c.size() - conflict.size();
+                assert(c.size() >= conflict.size() && "shrink should not increase size");
+
+                c.shrink(c.size() - conflict.size()); // shrink clause!
+                for (int k = 0; k < c.size(); ++ k) { c[k] = conflict[k]; } // and actually use the literals of conflict
+            } else if (false && impliedLit != lit_Undef && c.last() == impliedLit && j == c.size()) { // this is no valid operation, unless we actually did not shrink c above!
+                // in case analysis did not result in removing a literal from c, at least drop the impliedLit as in usual vivification
+                assert(c[j - 1] == impliedLit && c.size() >= j && "until here, the position of impliedLit should be fixed");
+
+                c[j - 1] = c.last(); // drop the literal "impliedLit" from the clause
+                c.pop();
+                lcm.npLCMimpDrop ++;
+            }
+            conflict.clear();
+
+            // analyzeFinal will place the literals in reverse order in c. Make sure we can convert this back
+            if (roundViviConfig > 3) { c.reverse(); }
+        }
+
+        if (c.size() < inputSize) minimized = true; // eventually update other clause statistics as well
+        cancelUntil(0);
+
+        if (round == 2) c.reverse(); // reverse clause in second iteration!
+
+        roundLits[round] = c.size();
+        if (!minimized) break; // no need for a second iteration if no minimization was achieved in the first iteration
+    }
+
+    lcm.nbRound1Lits += roundLits[0] - roundLits[1];
+    if (round > 1) { lcm.nbRound2Lits += roundLits[1] - roundLits[2]; }
+
+    return c.size();
+}
+
+bool Solver::simplifyClause_viviLCM(const CRef cr, int LCMconfig, bool fullySimplify)
+{
+    assert(qhead == trail.size() && "make sure, we are working on level 0 and the PROOF is up to date!");
+    Clause& c = ca[cr];
+    bool keepClause = false;
+    bool false_lit = false, sat = false;
+    // in the first 2 positions, there should not be a falsified literal after propagation!
+    int i = 2, j = 2;
+    if (outputsProof()) { add_tmp.clear(); } // keep track of all literals of the clause to have a proper DRAT proof!
+
+    if (c.size() > 2) {
+        if (value(c[0]) == l_True || value(c[1]) == l_True) {
+            sat = true;
+        } else {
+            for (i = 2; i < c.size(); i++) {
+                if (value(c[i]) == l_True) {
+                    sat = true;
+                    break;
+                }
+            }
+            if (!sat) {
+                if (outputsProof()) for (int k = 0 ; k < c.size(); ++k) { add_tmp.push(c[k]); } // store full clause before any removal
+                for (i = 2; i < c.size(); i++) {
+                    if (value(c[i]) != l_False) {
+                        c[j++] = c[i];
+                        if (value(c[i]) == l_True) {
+                            sat = true;
+                            break;
+                        }
+                    }
+                }
+                lcm.nbLCMfalsified += (i - j);
+                c.shrink(i - j);
+            }
+        }
+        // a clause might become satisfiable during the analysis. remove such a clause!
+        if (sat) {
+            removeClause(cr, true); // this will also delete the clause from the DRAT proof!
+            return false; // drop the clause!
+        }
+    } else {
+        if (value(c[0]) == l_True || value(c[1]) == l_True) {
+            return true; // keep satisfied binary clauses, and do not continue with these clauses
+        }
+    }
+
+    if (!fullySimplify) { // use efficiency filters?
+        // if clause is in first half of sorted learned clauses, or has been processed in the past, ignore it
+        return true;
+    }
+
+    int oldSize = c.size();
+    detachClause(cr, true); // expensive, hence perform as late as possible
+
+    lcm.nbLCMattempts ++;
+    // simplifying the clause does not change it's memory location, hence c is still valid afterwards
+    simplifyLearntLCM(c, LCMconfig); // TODO: eventually use to update clause LBD
+    lcm.nbLitsLCM += oldSize - c.size();
+    lcm.nbLCMsuccess = oldSize > c.size() ? lcm.nbLCMsuccess + 1 : lcm.nbLCMsuccess;
+
+    if (outputsProof()) { // respect proof
+        if (add_tmp.size() > c.size() && c.size() >= 1) {
+            extendProof(c);
+            extendProof(add_tmp, true); // for now, keep this removed!
+        }
+    }
+
+    // add clause back to the data structures
+    if (c.size() > 1) {
+        attachClause(cr);
+        keepClause = true;
+
+        c.setLcmSimplified();
+    } else if (c.size() == 1) {
+        uncheckedEnqueue(c[0]); // this clause is already added to the proof
+        extendProof(c);         // make sure the unit ends up on the proof as well!
+
+        // free clause, as it's satisfiable now
+        c.mark(1);
+        ca.free(cr);
+    } else {
+        ok = false;
+    }
+    return keepClause;
+}
+
+bool Solver::simplifyLCM()
+{
+    assert(qhead == trail.size() && "make sure we are in a good state before LCM");
+
+    // make sure we do not miss something
+    if (!ok || propagate() != CRef_Undef) {
+        return ok = false;
+    }
+
+    lcm.nbLCM ++;
+    assert(decisionLevel() == 0 && "run learned clause minimization only on level 0");
+    removeSatisfied(clauses);
+    watches.cleanAll();
+
+    int ci, cj;
+    for (ci = 0, cj = 0; ci < learnts.size(); ci++) {
+        const CRef cr = learnts[ci];
+        Clause& c = ca[cr];
+        if (c.mark()) { continue; } // this clause can be dropped
+        if (c.size() < lcm.min_size) {
+            // do not look at clauses that have less than the given amount of literals
+            learnts[cj++] = learnts[ci];
+            continue;
+        }
+
+        bool keep = simplifyClause_viviLCM(cr, lcm.style, ! c.wasLcmSimplified() && ci >= learnts.size() / 2);  // only run full LCM on new good clauses
+        if (keep) { learnts[cj++] = learnts[ci]; }
+        if (!ok) { break; } // stop in case we found an empty clause
+    }
+    // fill gaps unneeded space
+    learnts.shrink(ci - cj);
+
+
+    checkGarbage();
+    return ok;
+}

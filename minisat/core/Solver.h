@@ -192,6 +192,24 @@ public:
          {}
     } lcm;
 
+    /** learned clause minimization style inprocessing inside the solver, based on vivification
+     *
+     *  @return false, if the simplification revealed an unsatisfiable formula.
+     */
+    bool simplifyLCM();
+
+    /** run all the simplification that is necessary for one lause
+     * Note: this method assumes the clause is detached before being called
+     * @param cr index of the clause to be processed (might be learned or original clause)
+     * @param LCMconfig 5x5 number of what to do in forward and backward iteration of LCM (3*5+5 seems to be strongest)
+     * @param fullySimplify allow to actually run vivification on that clause, otherwise, only falsified literals are removed
+     * @return true, if the clause reference should be kept. In case false is returned, the clause is already removed from the solver
+     */
+    bool simplifyClause_viviLCM(const CRef cr, int LCMconfig, bool fullySimplify = true);
+
+    /// simplify a non-watched clause, and perform vivification on it. return new clause size
+    int simplifyLearntLCM(Clause& c, int vivificationConfig);
+
   protected:
 
     // Helper structures:
