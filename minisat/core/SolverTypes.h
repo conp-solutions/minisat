@@ -147,7 +147,8 @@ class Clause {
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned onQueue   : 1;
-        unsigned size      : 26; }                        header;
+        unsigned lcm_simplified : 1; // run clause vivification on this clause already?
+        unsigned size      : 25; }                        header;
 #if defined __clang__
   #pragma clang diagnostic push
 #elif defined __GNUC__
@@ -178,6 +179,7 @@ class Clause {
         header.learnt    = learnt;
         header.has_extra = use_extra;
         header.reloced   = 0;
+        header.lcm_simplified = 0;
         header.size      = ps.size();
         header.onQueue   = 0;
 
@@ -248,6 +250,10 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
+
+    bool         wasLcmSimplified() const    { return header.lcm_simplified; }
+    void         setLcmSimplified()          { header.lcm_simplified = 1; }
+    void         resetLcmSimplified()        { header.lcm_simplified = 0; }
 };
 
 
