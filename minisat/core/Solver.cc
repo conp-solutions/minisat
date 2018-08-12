@@ -57,6 +57,10 @@ static IntOption     opt_min_learnts_lim   (_cat, "min-learnts", "Minimum learnt
 static BoolOption    opt_cbh               (_cat, "cbh",         "Use CBH decision heuristic", false);
 static IntOption     opt_chrono            (_cat, "chrono",      "Perform non-chronological backjumping for jumps larger than (set to 100)", -1, IntRange(-1, INT32_MAX));
 static IntOption     opt_conf_to_chrono    (_cat, "confl-to-chrono",  "Do not perform non-chronological backjumps before passing X conflicts", 4000, IntRange(-1, INT32_MAX));
+static BoolOption    opt_lcm               (_cat, "lcm",          "Perform LCM during search (based on Chu-Min Li, 2017)", false);
+static IntOption     opt_lcm_style         (_cat, "lcm-style",    "Use vivifaction for learned clauses (1=plain vivi, 2=vivi+analyze, 3=vivi+unionanalyze, 4+reverse, >4 X-4, and-reverse)", 18, IntRange(0, 24));
+static IntOption     opt_lcm_freq          (_cat, "lcm-freq",     "Use LCM after every X reduceDB calls", 2, IntRange(1, INT32_MAX));
+static IntOption     opt_lcm_min_size      (_cat, "lcm-min-size", "Apply LCM only to clauses that have at least X literals", 1, IntRange(1, INT32_MAX));
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -128,6 +132,8 @@ Solver::Solver() :
   , dec_vars(0), num_clauses(0), num_learnts(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
   , start_total_literals(UINT64_MAX), start_num_clauses(UINT64_MAX)
   , chrono_backtrack(0), non_chrono_backtrack(0)
+
+  , lcm(opt_lcm, opt_lcm_style, opt_lcm_freq, opt_lcm_min_size)
 
   , watches            (WatcherDeleted(ca))
   , order_heap         (VarOrderLt(activity))

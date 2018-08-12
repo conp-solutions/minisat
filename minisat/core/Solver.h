@@ -171,7 +171,28 @@ public:
 
     } statistics;
 
-protected:
+    struct LCM {
+      uint64_t nbLCM, nbLitsLCM, nbConflLits, nbLCMattempts, nbLCMsuccess,
+               npLCMimpDrop, nbRound1Lits, nbRound2Lits, nbLCMfalsified;
+      bool     active;
+      int      style;
+      int      frequency, min_size, performLCMNext;
+      LCM() :  nbLCM(0), nbLitsLCM(0), nbConflLits(0), nbLCMattempts(0)
+             , nbLCMsuccess(0), npLCMimpDrop(0), nbRound1Lits(0)
+             , nbRound2Lits(0), nbLCMfalsified(0)
+             , active(false), style(18), frequency(1), min_size(2)
+             , performLCMNext(0)
+               {}
+      LCM(bool _active, int _style, int _frequency, int _min_size) :
+               nbLCM(0), nbLitsLCM(0), nbConflLits(0), nbLCMattempts(0)
+             , nbLCMsuccess(0), npLCMimpDrop(0), nbRound1Lits(0)
+             , nbRound2Lits(0), nbLCMfalsified(0)
+             , active(_active), style(_style), frequency(_frequency)
+             , min_size(_min_size), performLCMNext(0)
+         {}
+    } lcm;
+
+  protected:
 
     // Helper structures:
     //
