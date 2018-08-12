@@ -220,6 +220,8 @@ public:
     int          size        ()      const   { return header.size; }
     void         shrink      (int i)         { assert(i <= size()); if (header.has_extra) data[header.size-i] = data[header.size]; header.size -= i; }
     void         pop         ()              { shrink(1); }
+    void         swap        (uint32_t i, uint32_t j)
+                                             { assert(i <= size()); assert(j <= size()); const Lit l = data[i].lit; data[i].lit = data[j].lit; data[j].lit = l; }
     bool         learnt      ()      const   { return header.learnt; }
     bool         has_extra   ()      const   { return header.has_extra; }
     uint32_t     mark        ()      const   { return header.mark; }
