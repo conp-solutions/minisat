@@ -954,6 +954,16 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
+    // simplify
+    if (lcm.active && (lcm.style > 0 && lcm.performLCMNext > 0 && lcm.performLCMNext % lcm.frequency == 0)) {
+        // from time to time we have to interfere with partial restarts, but LCM overrules, to be able to run once in a while
+        if (decisionLevel() > 0) cancelUntil(0);
+
+        sort(learnts, reduceDB_lt(ca));
+        if (!simplifyLCM()) { return l_False; }
+        lcm.performLCMNext = 0;
+    }
+
     for (;;){
         CRef confl = propagate();
 
@@ -1038,10 +1048,12 @@ lbool Solver::search(int nof_conflicts)
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
 
-            if (learnts.size()-nAssigns() >= max_learnts)
+            if (learnts.size()-nAssigns() >= max_learnts) {
                 // Reduce the set of learnt clauses:
                 reduceDB();
 
+                if (lcm.active) lcm.performLCMNext ++; // after clause reduction, performing one more analysis of clauses is ok
+            }
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
                 // Perform user provided assumption:
@@ -1290,6 +1302,8 @@ void Solver::printStats() const
     double backtrack_sum = non_chrono_backtrack + chrono_backtrack;
     printf("c backtracks            : %-12" PRIu64"   (NCB %0.f%% , CB %0.f%%)\n", non_chrono_backtrack + chrono_backtrack,
            (non_chrono_backtrack * 100) / backtrack_sum , (chrono_backtrack * 100) / backtrack_sum);
+    printf("c LCM: %ld nbLCM, %ld LCMclsAttempts, %ld nbLCMclsSuccess, %ld npConflLCMlits, %ld nbLCMlits, %ld falsified, %ld positiveDrop, %ld litsR1, %ld litsR2\n",
+               lcm.nbLCM, lcm.nbLCMattempts, lcm.nbLCMsuccess, lcm.nbConflLits, lcm.nbLitsLCM, lcm.nbLCMfalsified, lcm.npLCMimpDrop, lcm.nbRound1Lits, lcm.nbRound2Lits);
     if (mem_used != 0) printf("c Memory used           : %.2f MB\n", mem_used);
     printf("c CPU time              : %g s\n", cpu_time);
 
