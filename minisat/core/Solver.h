@@ -327,6 +327,7 @@ protected:
 
     template <class T>
     void      extendProof(const T& clause, bool remove = false, Lit drop = lit_Undef); // Extend the proof - if open - with the given clause, and extend with 'd ' if requested. Drop the drop literal from the clause, in case it's specified.
+    bool      outputsProof() const;                                                    // Indicate whether a proof is generated { return proofFile != 0; }
 
     vec<unsigned char> binary_proof_buffer;      /// buffer for the current binary proof blob, to be flushed once in a while
     void binary_proof_add_literal(Lit l);        /// add literal to binary proof
@@ -499,6 +500,8 @@ inline void     Solver::extendProof  (const T& clause, bool remove, Lit drop) {
         fprintf(proofFile, "%s0\n", s.str().c_str());
     }
 }
+
+inline bool Solver::outputsProof() const { return proofFile != 0; }
 
 inline void Solver::binary_proof_add_literal(Lit l){
     unsigned int u = 2 * (var(l) + 1) + sign(l);
