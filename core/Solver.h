@@ -95,6 +95,7 @@ public:
 
     // Resource contraints:
     //
+    bool    withinBudget()     const;
     void    setConfBudget(int64_t x);
     void    setPropBudget(int64_t x);
     void    budgetOff();
@@ -255,7 +256,6 @@ protected:
     CRef     reason           (Var x) const;
     int      level            (Var x) const;
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
-    bool     withinBudget     ()      const;
 
     // Static helpers:
     //
